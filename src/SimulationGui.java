@@ -204,7 +204,7 @@ public class SimulationGui extends JFrame implements Constants, ActionListener, 
 	private void loadImages() {
 		MediaTracker tracker = new MediaTracker(this);
 		Toolkit tk = Toolkit.getDefaultToolkit();
-		background = loadImage(tk, "images/background.gif", tracker);
+		background = loadImage(tk, "src/images/background.gif", tracker);
 		try {
 			tracker.waitForID(0);
 	    } catch (InterruptedException ie) {}
