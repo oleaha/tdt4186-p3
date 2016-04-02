@@ -52,6 +52,7 @@ public class Simulator implements Constants
 	 */
 	public void simulate() {
 		// TODO: You may want to extend this method somewhat.
+		// TODO: Teach Peder how to program
 
 		System.out.print("Simulating...");
 		// Genererate the first process arrival event
