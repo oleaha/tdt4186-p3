@@ -20,6 +20,8 @@ public class Simulator implements Constants
 	/** The average length between process arrivals */
 	private long avgArrivalInterval;
 	// Add member variables as needed
+	private CPU cpu;
+	private IO io;
 
 	/**
 	 * Constructs a scheduling simulator with the given parameters.
@@ -42,6 +44,8 @@ public class Simulator implements Constants
 		statistics = new Statistics();
 		eventQueue = new EventQueue();
 		memory = new Memory(memoryQueue, memorySize, statistics);
+		cpu = new CPU(gui, cpuQueue, maxCpuTime, statistics);
+		io = new IO(gui, ioQueue, avgIoTime, statistics);
 		clock = 0;
 		// Add code as needed
     }
@@ -69,6 +73,8 @@ public class Simulator implements Constants
 			// Let the memory unit and the GUI know that time has passed
 			memory.timePassed(timeDifference);
 			gui.timePassed(timeDifference);
+			cpu.timePassed(timeDifference);
+			io.timePassed(timeDifference);
 			// Deal with the event
 			if (clock < simulationLength) {
 				processEvent(event);
@@ -132,16 +138,14 @@ public class Simulator implements Constants
 		Process p = memory.checkMemory(clock);
 		// As long as there is enough memory, processes are moved from the memory queue to the cpu queue
 		while(p != null) {
-			
-			// TODO: Add this process to the CPU queue!
-			// Also add new events to the event queue if needed
 
-			// Since we haven't implemented the CPU and I/O device yet,
-			// we let the process leave the system immediately, for now.
-			memory.processCompleted(p);
-			// Try to use the freed memory:
-			flushMemoryQueue();
+			p.timeToNextIO();
+			// Create CPU event
+			Event e = cpu.insertProcess(p, clock);
+			// Insert CPU event into event queue
+			eventQueue.insertEvent(e);
 			// Update statistics
+			// TODO: If this correct?
 			p.updateStatistics(statistics);
 
 			// Check for more free memory
@@ -153,14 +157,25 @@ public class Simulator implements Constants
 	 * Simulates a process switch.
 	 */
 	private void switchProcess() {
-		// Incomplete
+		// Initiate RR
+		Event e = cpu.switchProcess(clock);
+		// Add event to event queue
+		eventQueue.insertEvent(e);
 	}
 
 	/**
 	 * Ends the active process, and deallocates any resources allocated to it.
 	 */
 	private void endProcess() {
-		// Incomplete
+		// Get the current active process
+		Process end = cpu.getActive();
+		// Update cpu stats
+		Event e = cpu.activeLeftCPU(clock);
+		eventQueue.insertEvent(e);
+		memory.processCompleted(end);
+		flushMemoryQueue();
+		end.updateStatistics(statistics);
+
 	}
 
 	/**
@@ -168,7 +183,16 @@ public class Simulator implements Constants
 	 * perform an I/O operation.
 	 */
 	private void processIoRequest() {
-		// Incomplete
+		// Get the active CPU process
+		Process p = cpu.getActive();
+		p.leaveCPU(clock);
+		// Add process to IO queue
+		Event e = io.addIORequest(p, clock);
+		eventQueue.insertEvent(e);
+
+		// Switch to a new process in CPU
+		Event newProc = cpu.activeLeftCPU(clock);
+		eventQueue.insertEvent(newProc);
 	}
 
 	/**
@@ -176,7 +200,17 @@ public class Simulator implements Constants
 	 * is done with its I/O operation.
 	 */
 	private void endIoOperation() {
-		// Incomplete
+		Process end = io.removeActive();
+		end.leaveIO(clock);
+
+		// Put finished process into CPU queue
+		Event e = cpu.insertProcess(end, clock);
+		eventQueue.insertEvent(e);
+
+		// IO is ready for new request
+		Event newIO = io.startIO(clock);
+		eventQueue.insertEvent(newIO);
+
 	}
 
 	/**
@@ -210,9 +244,9 @@ public class Simulator implements Constants
 		if(DEBUG) {
 			memorySize = 2048;
 			maxCpuTime = 500;
-			avgIoTime = 225;
+			avgIoTime = 500;
 			simulationLength = 250000;
-			avgArrivalInterval = 5000;
+			avgArrivalInterval = 1300;
 
 		} else {
 			System.out.println("Please input system parameters: ");

@@ -114,7 +114,70 @@ public class Process implements Constants
      */
 	public void updateStatistics(Statistics statistics) {
 		statistics.totalTimeSpentWaitingForMemory += timeSpentWaitingForMemory;
+		statistics.totalTimeSpentInReadyQueue += timeSpentInReadyQueue;
+		statistics.totalTimeSpentInCPU += timeSpentInCpu;
+		statistics.totalTimeSpentWaitingForIO += timeSpentWaitingForIo;
+		statistics.totalTimeSpentInIO += timeSpentInIo;
+
+		statistics.totalNofTimesInReadyQueue += nofTimesInReadyQueue;
+		statistics.totalNofTimesInIoQueue += nofTimesInIoQueue;
 		statistics.nofCompletedProcesses++;
+	}
+
+	/**
+	 * Calculate how long until next IO request for process.
+	 */
+	public void timeToNextIO() {
+		timeToNextIoOperation = 1 + (long)(2 * Math.random()*avgIoInterval);
+	}
+
+	/** START: CPU **/
+
+	public void enterCPU(long c) {
+		nofTimesInReadyQueue++;
+		timeSpentInReadyQueue += c - timeOfLastEvent;
+		timeOfLastEvent = c;
+	}
+
+	public void leaveCPU(long c) {
+		timeSpentInCpu += c - timeOfLastEvent;
+		timeOfLastEvent = c;
+	}
+
+	public Event getNextEvent(long c, long max) {
+		if(cpuTimeNeeded < max) {
+			if(cpuTimeNeeded < timeToNextIoOperation) {
+				return new Event(END_PROCESS, c + cpuTimeNeeded);
+			}
+			return new Event(IO_REQUEST, c + timeToNextIoOperation);
+		} else {
+			if(timeToNextIoOperation < max) {
+				return new Event(IO_REQUEST, c + timeToNextIoOperation);
+			}
+			return new Event(SWITCH_PROCESS, c + max);
+		}
+	}
+
+	public void CPUTimePassed(long time) {
+		cpuTimeNeeded -= time;
+		timeToNextIoOperation -= time;
+	}
+
+	/**
+	 * END: CPU
+	 *
+	 * START: IO
+	 * **/
+
+	public void enterIO(long c) {
+		nofTimesInIoQueue++;
+		timeSpentWaitingForIo += c - timeOfLastEvent;
+		timeOfLastEvent = c;
+	}
+
+	public void leaveIO(long c) {
+		timeSpentInIo += c - timeOfLastEvent;
+		timeOfLastEvent = c;
 	}
 
 	// Add more methods as needed
